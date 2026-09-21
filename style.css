@@ -1,0 +1,216 @@
+/* ARKILA STYLESHEET */
+
+:root {
+  /* Safe Area Insets */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+
+  /* Color Palette */
+  --color-bg-dark: #0f172a;
+  --color-bg-panel: rgba(15, 23, 42, 0.82);
+  --color-bg-ctrl: rgba(30, 41, 59, 0.9);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-hover: #334155;
+  --color-text-primary: #e2e8f0;
+  --color-text-muted: #94a3b8;
+  --color-accent: #059669;
+  --color-accent-light: #34d399;
+
+  /* UI Variables */
+  --glass-blur: 16px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-full: 9999px;
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 10px 25px rgba(0, 0, 0, 0.5);
+  
+  /* Transitions */
+  --transition-bounce: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Base Styles */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-primary);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-heading {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Mobile Safe Areas */
+.pt-safe {
+  padding-top: max(0.625rem, var(--sat));
+}
+.pb-safe {
+  padding-bottom: max(0.5rem, var(--sab));
+}
+
+/* Smooth Touch Scrolling */
+.touch-scrolling {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-light);
+}
+
+/* Glassmorphism Styles */
+.glass-card {
+  background: var(--color-bg-panel);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--color-border);
+  will-change: transform, opacity;
+  transform: translateZ(0); /* Force GPU acceleration */
+}
+
+/* MAPLIBRE GL JS OVERRIDES */
+#map {
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-bg-dark);
+  z-index: 1;
+}
+
+.maplibregl-canvas {
+  outline: none;
+}
+
+.maplibregl-ctrl-group {
+  background: var(--color-bg-ctrl) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-group button {
+  width: 36px;
+  height: 36px;
+  transition: var(--transition-fast);
+}
+.maplibregl-ctrl-group button:focus-visible {
+  outline: 2px solid var(--color-accent-light);
+  outline-offset: -2px;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--color-border-hover) !important;
+}
+.maplibregl-ctrl-group button:hover {
+  background-color: var(--color-border-hover) !important;
+}
+.maplibregl-ctrl-group .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(15, 23, 42, 0.8) !important;
+  color: var(--color-text-muted) !important;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--color-accent-light) !important;
+  text-decoration: none;
+}
+.maplibregl-ctrl-attrib a:hover {
+  text-decoration: underline;
+}
+
+/* Map Popups */
+.maplibregl-popup-content {
+  background: var(--color-bg-dark);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: var(--shadow-xl);
+}
+.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: var(--color-bg-dark); }
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: var(--color-bg-dark); }
+.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--color-bg-dark); }
+.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--color-bg-dark); }
+
+/* Custom Map Markers */
+.custom-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-bounce);
+  will-change: transform;
+}
+.custom-marker:hover,
+.custom-marker:active,
+.custom-marker:focus-visible {
+  transform: scale(1.15);
+  outline: none;
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .custom-marker,
+  .maplibregl-ctrl-group button,
+  .touch-scrolling {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+  
+  #printable-receipt-modal,
+  #printable-receipt-modal * {
+    visibility: visible;
+  }
+  
+  #printable-receipt-modal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: auto;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

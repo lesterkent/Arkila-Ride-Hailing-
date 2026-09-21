@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900 text-slate-100 antialiased">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Arkila — Ride Booking & Mobility Platform</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- MapLibre GL JS -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- App logic -->
+  <script src="script.js"></script>
+</head>
+<body class="h-full w-full overflow-hidden flex flex-col justify-between selection:bg-brand-500 selection:text-white bg-slate-950">
+
+  <!-- Page Loader Overlay -->
+  <div id="page-loader" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 transition-opacity duration-500">
+    <div class="relative flex items-center justify-center mb-4">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-700 via-brand-600 to-emerald-400 flex items-center justify-center shadow-xl shadow-brand-600/30 text-white text-3xl animate-bounce">
+        <i class="fa-solid fa-motorcycle"></i>
+      </div>
+    </div>
+    <div class="flex items-center space-x-2 text-brand-400 font-heading font-bold text-xl tracking-wider">
+      <span>Arkila</span>
+      <i class="fa-solid fa-circle-notch animate-spin text-sm"></i>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">Loading platform...</p>
+  </div>
+
+  <!-- Script to dismiss Page Loader -->
+  <script>
+    window.addEventListener('load', () => {
+      const loader = document.getElementById('page-loader');
+      if (loader) {
+        loader.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+          loader.remove();
+        }, 500);
+      }
+    });
+  </script>
+
+  <!-- Top Navigation Header -->
+  <header class="relative z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/80 px-4 py-2.5 sm:py-3 flex items-center justify-between shadow-lg shrink-0 pt-safe">
+    <div class="flex items-center space-x-3 min-w-0">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-600/30 text-white font-heading font-extrabold text-lg sm:text-xl tracking-wider shrink-0">
+        <i class="fa-solid font-bold fa-motorcycle text-base sm:text-lg"></i>
+      </div>
+      <div class="min-w-0">
+        <div class="flex items-center space-x-2">
+          <span class="font-heading font-bold text-lg sm:text-xl tracking-tight text-white">Arkila</span>
+        </div>
+        <p class="text-[11px] sm:text-xs text-slate-400 flex items-center gap-1 truncate">
+          <i class="fa-solid fa-location-dot text-brand-400 text-[10px] shrink-0"></i> 
+          <span id="header-location-name" class="truncate">San Carlos City, Pangasinan</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Mode Switcher & Quick Actions -->
+    <div class="flex items-center space-x-2 shrink-0">
+      <!-- Role Toggle Button -->
+      <div class="bg-slate-800/90 p-1 rounded-xl border border-slate-700/60 flex items-center text-xs font-medium">
+        <button id="mode-passenger-btn" onclick="switchUserRole('passenger')" class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-1.5 bg-brand-600 text-white shadow-sm font-semibold">
+          <i class="fa-solid fa-user-tag text-xs"></i>
+          <span class="hidden sm:inline">Passenger</span>
+        </button>
+        <button id="mode-driver-btn" onclick="switchUserRole('driver')" class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-1.5 text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-id-card text-xs"></i>
+          <span class="hidden sm:inline">Driver</span>
+          <span id="driver-badge-indicator" class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span>
+        </button>
+      </div>
+
+      <!-- Desktop Viewport Simulator Toggle -->
+      <button onclick="toggleDeviceSimulator()" title="Toggle Mobile/Desktop Container" class="hidden md:flex w-9 h-9 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition border border-slate-700 active:scale-95">
+        <i class="fa-solid fa-mobile-screen-button text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Application Workspace Container -->
+  <main id="app-viewport" class="relative flex-1 w-full h-full overflow-hidden flex flex-col md:flex-row">
+    
+    <!-- Right Panel: Map Canvas -->
+    <div class="relative flex-1 h-[45vh] md:h-full w-full order-1 md:order-2 overflow-hidden bg-slate-950">
+      <div id="map" class="w-full h-full z-0"></div>
+
+      <!-- Map Overlay Controls -->
+      <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 flex flex-col space-y-2">
+        <button onclick="recenterMapOnUser()" title="Recenter Map" class="w-10 h-10 rounded-xl bg-slate-900/90 text-slate-200 hover:text-brand-400 shadow-xl border border-slate-700/80 flex items-center justify-center transition active:scale-95 backdrop-blur-md">
+          <i class="fa-solid fa-crosshairs text-base"></i>
+        </button>
+        <button onclick="toggleMapStyleLayer()" title="Toggle Satellite Map" class="w-10 h-10 rounded-xl bg-slate-900/90 text-slate-200 hover:text-brand-400 shadow-xl border border-slate-700/80 flex items-center justify-center transition active:scale-95 backdrop-blur-md">
+          <i class="fa-solid fa-layer-group text-base"></i>
+        </button>
+      </div>
+
+      <!-- Map Tap Instruction Alert Bar -->
+      <div id="map-tap-picker-banner" class="hidden absolute top-3 left-3 right-16 sm:top-4 sm:left-4 sm:right-20 z-10 bg-brand-600/95 backdrop-blur-md text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl shadow-2xl flex items-center justify-between animate-bounce-gentle border border-brand-400/30">
+        <span class="truncate"><i class="fa-solid fa-hand-pointer mr-1.5"></i> Tap map to pick destination</span>
+        <button onclick="disableMapPicker()" class="text-white hover:text-slate-200 font-bold ml-2 p-1">✕</button>
+      </div>
+    </div>
+
+    <!-- Left Panel / Mobile Bottom Sheet Container -->
+    <div id="interactive-panel" class="relative z-20 w-full md:w-[440px] lg:w-[480px] h-[55vh] md:h-full flex flex-col bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800/80 shadow-2xl transition-all duration-300 ease-out order-2 md:order-1 overflow-hidden">
+      
+      <!-- Mobile Bottom Sheet Handle Bar -->
+      <div class="md:hidden w-full py-2 flex items-center justify-center bg-slate-900/90 cursor-grab shrink-0 border-b border-slate-800/50">
+        <div class="w-10 h-1 rounded-full bg-slate-700"></div>
+      </div>
+
+      <!-- TAB 1: HOME DASHBOARD -->
+      <section id="tab-home" class="view-tab flex-1 flex flex-col p-3.5 sm:p-4 overflow-y-auto space-y-3.5 sm:space-y-4 touch-scrolling">
+        <!-- Greeting Card -->
+        <div class="glass-card p-3.5 sm:p-5 rounded-2xl relative overflow-hidden bg-gradient-to-r from-brand-900/80 via-slate-900 to-slate-900 border border-brand-500/40 shadow-lg shadow-brand-500/10">
+          <div class="flex items-center justify-between gap-3 sm:gap-4 relative z-10">
+            <div class="min-w-0 flex-1">
+              <p class="text-[10px] sm:text-xs font-semibold text-brand-400 uppercase tracking-widest mb-1">
+                Welcome Back
+              </p>
+              
+              <!-- Ensured "Kamusta, Juan!" is visible on mobile -->
+              <h2 id="user-greeting-name" class="font-heading text-base sm:text-2xl font-bold text-white leading-snug break-words">
+                Kamusta, Juan! 👋
+              </h2>
+              
+              <p class="text-xs sm:text-sm text-slate-300 mt-1 line-clamp-2">
+                Ready to explore San Carlos City &amp; nearby towns?
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Location Search CTA Box -->
+        <div onclick="openRouteSelector()" class="p-3.5 sm:p-4 rounded-2xl glass-card hover:border-brand-500/50 transition duration-200 cursor-pointer group shadow-lg flex items-center space-x-3 bg-slate-800/60 active:scale-[0.99]">
+          <div class="w-10 h-10 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center group-hover:scale-105 transition shrink-0">
+            <i class="fa-solid fa-magnifying-glass text-lg"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <span class="text-[11px] sm:text-xs text-slate-400 block font-medium">Where are you going today?</span>
+            <span class="text-xs sm:text-sm font-semibold text-white group-hover:text-brand-300 transition truncate block">Search pickup or drop-off spot...</span>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-brand-600/20 text-brand-400 text-[11px] font-bold border border-brand-500/30 shrink-0">BOOK</span>
+        </div>
+
+        <!-- Quick Places Grid -->
+        <div>
+          <div class="flex items-center justify-between mb-2 px-1">
+            <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Saved Locations</h3>
+            <button onclick="switchTab('tab-profile')" class="text-xs text-brand-400 hover:underline font-medium">Manage</button>
+          </div>
+          <div class="grid grid-cols-3 gap-2 sm:gap-2.5">
+            <button onclick="quickSetDestination('San Carlos City Public Market')" class="glass-card p-2.5 sm:p-3 rounded-xl flex flex-col items-center justify-center text-center hover:bg-slate-800/80 transition active:scale-95 border border-slate-800 hover:border-brand-500/30">
+              <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1 shrink-0">
+                <i class="fa-solid fa-store text-xs sm:text-sm"></i>
+              </div>
+              <span class="text-[11px] sm:text-xs font-semibold text-slate-200 truncate w-full">Public Market</span>
+              <span class="text-[9px] sm:text-[10px] text-slate-500 truncate w-full">Poblacion</span>
+            </button>
+
+            <button onclick="quickSetDestination('San Carlos City Hall')" class="glass-card p-2.5 sm:p-3 rounded-xl flex flex-col items-center justify-center text-center hover:bg-slate-800/80 transition active:scale-95 border border-slate-800 hover:border-brand-500/30">
+              <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-1 shrink-0">
+                <i class="fa-solid fa-landmark text-xs sm:text-sm"></i>
+              </div>
+              <span class="text-[11px] sm:text-xs font-semibold text-slate-200 truncate w-full">City Hall</span>
+              <span class="text-[9px] sm:text-[10px] text-slate-500 truncate w-full">Poblacion</span>
+            </button>
+
+            <button onclick="quickSetDestination('St. Dominic de Guzman Parish Church')" class="glass-card p-2.5 sm:p-3 rounded-xl flex flex-col items-center justify-center text-center hover:bg-slate-800/80 transition active:scale-95 border border-slate-800 hover:border-brand-500/30">
+              <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-1 shrink-0">
+                <i class="fa-solid fa-church text-xs sm:text-sm"></i>
+              </div>
+              <span class="text-[11px] sm:text-xs font-semibold text-slate-200 truncate w-full">St. Dominic</span>
+              <span class="text-[9px] sm:text-[10px] text-slate-500 truncate w-full">Poblacion</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Local Spots / Popular Landmarks -->
+        <div>
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Popular Destinations</h3>
+          <div class="space-y-2" id="popular-destinations-list">
+            <!-- Dynamic items populated by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: ROUTE SELECTOR & FARE COMPARISON -->
+      <section id="tab-booking" class="view-tab hidden flex-1 flex flex-col p-3.5 sm:p-4 overflow-y-auto space-y-3.5 sm:space-y-4 touch-scrolling">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <button onclick="switchTab('tab-home')" class="text-slate-400 hover:text-white transition flex items-center gap-2 text-xs font-medium py-1">
+            <i class="fa-solid fa-arrow-left"></i> Back to Home
+          </button>
+          <span class="text-[11px] font-bold text-brand-400 tracking-wider uppercase">Trip Details</span>
+        </div>
+
+        <!-- Pickups & Destination Selectors -->
+        <div class="glass-card p-3.5 sm:p-4 rounded-2xl space-y-3 border border-slate-800 bg-slate-800/40 relative">
+          <!-- Connector Line -->
+          <div class="absolute left-6 top-9 bottom-9 w-0.5 border-l-2 border-dashed border-slate-600 z-0"></div>
+
+          <!-- Pickup -->
+          <div class="relative z-10 flex items-center space-x-3">
+            <div class="w-5 h-5 rounded-full bg-brand-500/20 border-2 border-brand-400 flex items-center justify-center shrink-0">
+              <div class="w-1.5 h-1.5 rounded-full bg-brand-400"></div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <label class="text-[10px] uppercase font-bold text-brand-400 block tracking-wider">Pickup Location</label>
+              <select id="pickup-select" onchange="calculateRouteAndFares()" class="w-full bg-slate-900/90 text-slate-100 text-xs rounded-xl px-2.5 py-2 border border-slate-700 focus:border-brand-500 focus:outline-none transition mt-1 font-medium truncate">
+              </select>
+            </div>
+          </div>
+
+          <!-- Swap Button -->
+          <div class="flex justify-end pr-2 -my-2 relative z-20">
+            <button onclick="swapLocations()" title="Swap Pickup and Drop-off" class="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 flex items-center justify-center text-xs transition shadow active:scale-90">
+              <i class="fa-solid fa-arrow-down-up-across-line"></i>
+            </button>
+          </div>
+
+          <!-- Destination -->
+          <div class="relative z-10 flex items-center space-x-3">
+            <div class="w-5 h-5 rounded-full bg-rose-500/20 border-2 border-rose-400 flex items-center justify-center shrink-0">
+              <div class="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <label class="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Destination</label>
+              <select id="destination-select" onchange="calculateRouteAndFares()" class="w-full bg-slate-900/90 text-slate-100 text-xs rounded-xl px-2.5 py-2 border border-slate-700 focus:border-brand-500 focus:outline-none transition mt-1 font-medium truncate">
+              </select>
+            </div>
+          </div>
+
+          <button onclick="enableMapPicker()" class="w-full text-center text-xs text-brand-400 hover:text-brand-300 font-medium pt-1 flex items-center justify-center gap-1">
+            <i class="fa-solid fa-map-pin"></i> Tap on map to select spot
+          </button>
+        </div>
+
+        <!-- Route Metrics Summary -->
+        <div id="route-summary-bar" class="hidden grid-cols-2 gap-2.5">
+          <div class="glass-card p-2.5 sm:p-3 rounded-xl flex items-center space-x-2.5 border border-slate-800">
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-xs shrink-0">
+              <i class="fa-solid fa-route"></i>
+            </div>
+            <div class="min-w-0">
+              <p class="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Distance</p>
+              <p id="route-distance-text" class="text-xs sm:text-sm font-bold text-white truncate">0.0 km</p>
+            </div>
+          </div>
+
+          <div class="glass-card p-2.5 sm:p-3 rounded-xl flex items-center space-x-2.5 border border-slate-800">
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-xs shrink-0">
+              <i class="fa-solid fa-clock"></i>
+            </div>
+            <div class="min-w-0">
+              <p class="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Est. Time</p>
+              <p id="route-eta-text" class="text-xs sm:text-sm font-bold text-white truncate">0 mins</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vehicle Type Selection -->
+        <div>
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Select Vehicle</h3>
+          <div class="space-y-2">
+            <!-- Motorcycle Option -->
+            <div id="vehicle-option-motorcycle" onclick="selectVehicle('motorcycle')" class="vehicle-card p-3 rounded-2xl glass-card border-2 border-brand-500 bg-brand-950/20 cursor-pointer transition flex items-center justify-between active:scale-[0.99]">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-11 h-11 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center text-xl border border-brand-500/30 shrink-0">
+                  <i class="fa-solid fa-motorcycle"></i>
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="font-bold text-xs sm:text-sm text-white truncate">Motorcycle Taxi</span>
+                    <span class="px-1.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 text-[9px] font-bold shrink-0">FASTEST</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 truncate">1 Passenger • Max agility</p>
+                  <p class="text-[9px] text-slate-500 mt-0.5">Base ₱35 + ₱8/km</p>
+                </div>
+              </div>
+              <div class="text-right shrink-0 pl-2">
+                <p id="fare-motorcycle" class="text-sm sm:text-base font-extrabold text-brand-400">₱0.00</p>
+                <span class="text-[9px] text-slate-400 block">Est. Fare</span>
+              </div>
+            </div>
+
+            <!-- Tricycle Option -->
+            <div id="vehicle-option-tricycle" onclick="selectVehicle('tricycle')" class="vehicle-card p-3 rounded-2xl glass-card border border-slate-800 hover:border-slate-700 cursor-pointer transition flex items-center justify-between active:scale-[0.99]">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-11 h-11 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl border border-amber-500/30 shrink-0">
+                  <i class="fa-solid fa-taxi"></i>
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="font-bold text-xs sm:text-sm text-white truncate">Traditional Tricycle</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 truncate">Up to 3 Passengers</p>
+                  <p class="text-[9px] text-slate-500 mt-0.5">Base ₱50 + ₱12/km</p>
+                </div>
+              </div>
+              <div class="text-right shrink-0 pl-2">
+                <p id="fare-tricycle" class="text-sm sm:text-base font-extrabold text-white">₱0.00</p>
+                <span class="text-[9px] text-slate-400 block">Est. Fare</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Proceed CTA -->
+        <button onclick="openPaymentModal()" class="w-full py-3 sm:py-3.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-bold text-xs sm:text-sm tracking-wide shadow-lg shadow-brand-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2">
+          <span>Continue to Payment &amp; Booking</span>
+          <i class="fa-solid fa-chevron-right text-xs"></i>
+        </button>
+      </section>
+
+      <!-- TAB 3: RADAR SEARCH & LIVE DRIVER TRACKING -->
+      <section id="tab-tracking" class="view-tab hidden flex-1 flex flex-col p-3.5 sm:p-4 overflow-y-auto justify-between space-y-4 touch-scrolling">
+        <!-- SEARCHING RADAR STATE -->
+        <div id="searching-state-view" class="flex-1 flex flex-col items-center justify-center text-center p-4 sm:p-6 space-y-5">
+          <div class="relative flex items-center justify-center w-32 h-32 sm:w-36 sm:h-36">
+            <div class="absolute inset-0 rounded-full border border-brand-500/40 animate-radar-pulse"></div>
+            <div class="absolute inset-0 rounded-full border border-brand-400/20 animate-radar-pulse" style="animation-delay: 0.6s"></div>
+            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-brand-600/20 border border-brand-500 flex items-center justify-center text-brand-400 text-2xl sm:text-3xl shadow-xl shadow-brand-500/20">
+              <i class="fa-solid fa-satellite-dish animate-spin" style="animation-duration: 4s;"></i>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-lg sm:text-xl font-heading font-bold text-white">Finding Nearby Drivers...</h3>
+            <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Connecting with available riders in San Carlos City &amp; neighboring areas.</p>
+          </div>
+
+          <div class="w-full bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
+            <span class="text-xs text-slate-400">Estimated Search Time</span>
+            <span class="text-xs font-bold text-brand-400 flex items-center gap-1">
+              <i class="fa-solid fa-spinner animate-spin"></i> ~3 seconds
+            </span>
+          </div>
+
+          <button onclick="cancelBookingProcess()" class="w-full py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-semibold transition active:scale-95">
+            Cancel Search
+          </button>
+        </div>
+
+        <!-- ACTIVE DRIVER ASSIGNED & LIVE TRACKING STATE -->
+        <div id="tracking-state-view" class="hidden flex-1 flex flex-col justify-between space-y-3.5">
+          <!-- Trip Status Banner -->
+          <div class="glass-card p-3 rounded-2xl border border-brand-500/30 bg-gradient-to-r from-brand-950/40 to-slate-900 flex items-center justify-between">
+            <div class="flex items-center space-x-3 min-w-0">
+              <div id="status-icon-badge" class="w-9 h-9 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center text-sm sm:text-base shrink-0">
+                <i class="fa-solid fa-motorcycle animate-bounce-gentle"></i>
+              </div>
+              <div class="min-w-0">
+                <p id="trip-status-title" class="text-[10px] font-bold text-brand-400 uppercase tracking-wider">Driver En Route</p>
+                <p id="trip-status-subtitle" class="text-xs sm:text-sm font-bold text-white truncate">Arriving in <span id="live-eta-countdown">3 mins</span></p>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <span id="live-distance-rem" class="text-xs font-extrabold text-white bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">1.2 km</span>
+            </div>
+          </div>
+
+          <!-- Driver Profile Card -->
+          <div class="glass-card p-3.5 rounded-2xl border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="relative shrink-0">
+                  <img id="assigned-driver-photo" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Driver" class="w-11 h-11 rounded-full object-cover border-2 border-brand-500">
+                  <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
+                </div>
+                <div class="min-w-0">
+                  <h4 id="assigned-driver-name" class="font-bold text-xs sm:text-sm text-white truncate">Juan Dela Cruz</h4>
+                  <div class="flex items-center space-x-1.5 mt-0.5">
+                    <span class="text-xs text-amber-400 font-bold flex items-center gap-1">
+                      <i class="fa-solid fa-star text-[10px]"></i> <span id="assigned-driver-rating">4.9</span>
+                    </span>
+                    <span class="text-slate-600">•</span>
+                    <span id="assigned-driver-trips" class="text-xs text-slate-400 truncate">1,240 trips</span>
+                  </div>
+                </div>
+              </div>
+              <a id="driver-phone-link" href="tel:09171234567" class="w-9 h-9 rounded-xl bg-brand-500/20 text-brand-400 hover:bg-brand-500 hover:text-white transition flex items-center justify-center text-xs sm:text-sm border border-brand-500/30 shrink-0">
+                <i class="fa-solid fa-phone"></i>
+              </a>
+            </div>
+
+            <!-- Vehicle & License Plate Info -->
+            <div class="flex items-center justify-between text-xs bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/50">
+              <div class="min-w-0 pr-2">
+                <p class="text-slate-400 text-[9px] uppercase font-semibold">Vehicle Model</p>
+                <p id="assigned-vehicle-name" class="font-bold text-slate-200 truncate text-[11px] sm:text-xs">Honda Click 125i (Black)</p>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-slate-400 text-[9px] uppercase font-semibold">Plate Number</p>
+                <p id="assigned-plate-number" class="font-mono font-bold text-amber-400 bg-slate-900 px-2 py-0.5 rounded border border-amber-500/30 text-xs">ABC 1234</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Progress Bar -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+              <span>Pickup Spot</span>
+              <span id="simulation-progress-pct">0% Progress</span>
+              <span>Destination</span>
+            </div>
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5 border border-slate-700">
+              <div id="simulation-progress-bar" class="bg-brand-500 h-full rounded-full transition-all duration-300 w-0"></div>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="showToast('Emergency SOS signal dispatched to Local Authorities!', 'error')" class="py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-semibold text-xs transition active:scale-95 flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-shield-halved"></i>
+              <span>Safety SOS</span>
+            </button>
+            <button onclick="cancelBookingProcess()" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold text-xs transition active:scale-95">
+              Cancel Trip
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: DRIVER DASHBOARD MODE -->
+      <section id="tab-driver-dashboard" class="view-tab hidden flex-1 flex flex-col p-3.5 sm:p-4 overflow-y-auto space-y-3.5 sm:space-y-4 touch-scrolling">
+        <!-- Status Switch Header -->
+        <div class="glass-card p-3.5 sm:p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
+          <div class="min-w-0 pr-2">
+            <div class="flex items-center space-x-2">
+              <span id="driver-online-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0"></span>
+              <span id="driver-online-text" class="font-bold text-xs sm:text-sm text-slate-300 uppercase tracking-wide truncate">YOU ARE OFFLINE</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5 truncate">Toggle online to receive nearby requests</p>
+          </div>
+
+          <label class="relative inline-flex items-center cursor-pointer shrink-0">
+            <input type="checkbox" id="driver-status-toggle" onchange="toggleDriverOnlineStatus()" class="sr-only peer">
+            <div class="w-12 h-6.5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+          </label>
+        </div>
+
+        <!-- Driver Earnings Summary -->
+        <div class="grid grid-cols-3 gap-2 sm:gap-2.5">
+          <div class="glass-card p-2.5 sm:p-3 rounded-xl border border-slate-800 text-center">
+            <p class="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Today's Total</p>
+            <p id="driver-earnings-val" class="text-xs sm:text-base font-extrabold text-brand-400 mt-0.5">₱845.00</p>
+          </div>
+          <div class="glass-card p-2.5 sm:p-3 rounded-xl border border-slate-800 text-center">
+            <p class="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Completed</p>
+            <p id="driver-trips-count" class="text-xs sm:text-base font-extrabold text-white mt-0.5">12 Trips</p>
+          </div>
+          <div class="glass-card p-2.5 sm:p-3 rounded-xl border border-slate-800 text-center">
+            <p class="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Rating</p>
+            <p class="text-xs sm:text-base font-extrabold text-amber-400 mt-0.5"><i class="fa-solid fa-star text-xs"></i> 4.9</p>
+          </div>
+        </div>
+
+        <!-- Incoming Request Alert Card -->
+        <div id="driver-incoming-card" class="hidden glass-card p-3.5 sm:p-4 rounded-2xl border-2 border-brand-500 bg-brand-950/30 animate-bounce-gentle space-y-3">
+          <div class="flex items-center justify-between border-b border-brand-500/30 pb-2">
+            <span class="px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+              <i class="fa-solid fa-bell text-xs"></i> New Request!
+            </span>
+            <span id="incoming-fare-badge" class="font-extrabold text-sm sm:text-base text-brand-400">₱85.00</span>
+          </div>
+
+          <div class="space-y-1.5 text-xs">
+            <div class="flex items-center space-x-2 min-w-0">
+              <i class="fa-solid fa-circle text-brand-400 text-[10px] shrink-0"></i>
+              <span class="text-slate-400 shrink-0">From:</span>
+              <span id="incoming-pickup-text" class="font-bold text-white truncate">Public Market</span>
+            </div>
+            <div class="flex items-center space-x-2 min-w-0">
+              <i class="fa-solid fa-location-dot text-rose-500 text-[10px] shrink-0"></i>
+              <span class="text-slate-400 shrink-0">To:</span>
+              <span id="incoming-dest-text" class="font-bold text-white truncate">City Hall</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button onclick="declineDriverRequest()" class="py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition active:scale-95">
+              Decline
+            </button>
+            <button onclick="acceptDriverRequest()" class="py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-brand-600/30 transition active:scale-95">
+              Accept Trip
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Trip Management Panel for Driver -->
+        <div id="driver-active-trip-panel" class="hidden glass-card p-3.5 sm:p-4 rounded-2xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span class="text-xs font-bold text-brand-400 uppercase tracking-wide">Active Ride Progress</span>
+            <span id="driver-job-status" class="text-[9px] font-bold bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">PICKING UP</span>
+          </div>
+
+          <div class="text-xs space-y-1">
+            <p class="text-slate-400">Passenger: <strong id="driver-job-passenger-name" class="text-white">Maria Santos</strong></p>
+            <p class="text-slate-400">Fare: <strong id="driver-job-fare" class="text-brand-400 font-bold">₱80.00 (GCash)</strong></p>
+          </div>
+
+          <button id="driver-action-btn" onclick="advanceDriverTripStage()" class="w-full py-2.5 sm:py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs transition active:scale-95">
+            Start Trip (Passenger On Board)
+          </button>
+        </div>
+
+        <!-- Simulated Active Trips List / Logs -->
+        <div>
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Today's Completed Trips</h3>
+          <div id="driver-trip-logs" class="space-y-2">
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: TRIP HISTORY -->
+      <section id="tab-history" class="view-tab hidden flex-1 flex flex-col p-3.5 sm:p-4 overflow-y-auto space-y-3 touch-scrolling">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <h3 class="font-heading font-bold text-base sm:text-lg text-white">Your Trip History</h3>
+          <button onclick="clearTripHistory()" class="text-xs text-rose-400 hover:underline">Clear History</button>
+        </div>
+
+        <div id="history-items-container" class="space-y-2.5">
+        </div>
+      </section>
+
+      <!-- TAB 6: PROFILE & SAVED PLACES -->
+      <section id="tab-profile" class="view-tab hidden flex-1 flex flex-col p-3.5 sm:p-4 overflow-y-auto space-y-3.5 sm:space-y-4 touch-scrolling">
+        <div class="glass-card p-3.5 sm:p-4 rounded-2xl border border-slate-800 flex items-center space-x-3.5">
+          <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-xl sm:text-2xl border-2 border-brand-400 shadow-lg shrink-0">
+            J
+          </div>
+          <div class="min-w-0">
+            <h3 class="font-heading font-bold text-base sm:text-lg text-white truncate">Juan Dela Cruz</h3>
+            <p class="text-xs text-slate-400 truncate">+63 917 123 4567 • Passenger</p>
+            <span class="inline-block px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 text-[9px] font-bold mt-1">Arkila VIP Gold</span>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="glass-card p-3.5 sm:p-4 rounded-2xl border border-slate-800 space-y-3">
+          <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Preferences</h4>
+          
+          <div class="flex items-center justify-between text-xs py-1">
+            <span class="text-slate-300 font-medium">Dark Mode Map Styling</span>
+            <input type="checkbox" checked id="dark-map-toggle" onchange="toggleDarkMapStyle()" class="accent-brand-500 w-4 h-4 cursor-pointer">
+          </div>
+          <div class="flex items-center justify-between text-xs py-1 border-t border-slate-800/80">
+            <span class="text-slate-300 font-medium">Sound Effects &amp; Audio Haptics</span>
+            <input type="checkbox" checked id="sound-effects-toggle" class="accent-brand-500 w-4 h-4 cursor-pointer">
+          </div>
+        </div>
+
+        <div class="text-center text-[11px] text-slate-500 pt-2 pb-1">
+          <p class="font-bold text-slate-400">Arkila Mobility Platform</p>
+          <p>Version 2.0.4 • San Carlos City, Pangasinan</p>
+        </div>
+      </section>
+
+      <!-- Bottom Sheet Nav Tab Bar -->
+      <nav class="bg-slate-950 border-t border-slate-800/80 px-1 sm:px-2 py-2 flex items-center justify-around z-30 shrink-0 pb-safe">
+        <button onclick="switchTab('tab-home')" id="nav-tab-home" class="nav-item active flex flex-col items-center py-1 px-3 rounded-xl text-brand-400 transition active:scale-90">
+          <i class="fa-solid fa-house text-sm sm:text-base"></i>
+          <span class="text-[9px] sm:text-[10px] font-medium mt-0.5">Home</span>
+        </button>
+        
+        <button onclick="switchTab('tab-booking')" id="nav-tab-booking" class="nav-item flex flex-col items-center py-1 px-3 rounded-xl text-slate-400 hover:text-slate-200 transition active:scale-90">
+          <i class="fa-solid fa-route text-sm sm:text-base"></i>
+          <span class="text-[9px] sm:text-[10px] font-medium mt-0.5">Book</span>
+        </button>
+
+        <button onclick="switchTab('tab-history')" id="nav-tab-history" class="nav-item flex flex-col items-center py-1 px-3 rounded-xl text-slate-400 hover:text-slate-200 transition active:scale-90">
+          <i class="fa-solid fa-clock-rotate-left text-sm sm:text-base"></i>
+          <span class="text-[9px] sm:text-[10px] font-medium mt-0.5">History</span>
+        </button>
+
+        <button onclick="switchTab('tab-profile')" id="nav-tab-profile" class="nav-item flex flex-col items-center py-1 px-3 rounded-xl text-slate-400 hover:text-slate-200 transition active:scale-90">
+          <i class="fa-solid fa-user-gear text-sm sm:text-base"></i>
+          <span class="text-[9px] sm:text-[10px] font-medium mt-0.5">Profile</span>
+        </button>
+      </nav>
+    </div>
+  </main>
+
+  <!-- PAYMENT & PROMO CODE MODAL -->
+  <div id="payment-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="glass-card w-full max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-4 shadow-2xl animate-fade-in max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+        <h3 class="font-heading font-bold text-base sm:text-lg text-white">Payment Method &amp; Fare</h3>
+        <button onclick="closePaymentModal()" class="text-slate-400 hover:text-white transition text-base p-1">✕</button>
+      </div>
+
+      <!-- Fare Itemized Breakdown -->
+      <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+        <div class="flex justify-between text-slate-300">
+          <span>Base Ride Fare (<span id="modal-vehicle-type-label">Motorcycle</span>)</span>
+          <span id="modal-base-fare-val">₱0.00</span>
+        </div>
+        <div class="flex justify-between text-slate-300">
+          <span>Booking &amp; Safety Fee</span>
+          <span>₱5.00</span>
+        </div>
+        <div id="modal-discount-row" class="hidden flex justify-between text-emerald-400 font-semibold">
+          <span>Promo Discount (<span id="applied-promo-code">ARKILA2026</span>)</span>
+          <span id="modal-discount-val">-₱20.00</span>
+        </div>
+        <div class="border-t border-slate-800 pt-2 flex justify-between text-xs sm:text-sm font-extrabold text-white">
+          <span>Total Fare Amount</span>
+          <span id="modal-total-fare-val" class="text-brand-400">₱0.00</span>
+        </div>
+      </div>
+
+      <!-- Promo Code Applicator -->
+      <div>
+        <label class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Promo Code</label>
+        <div class="flex space-x-2">
+          <input type="text" id="promo-input" placeholder="Try 'ARKILA2026'" class="flex-1 bg-slate-900 text-slate-100 text-xs rounded-xl px-3 py-2 border border-slate-700 uppercase focus:border-brand-500 focus:outline-none">
+          <button onclick="applyPromoCode()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-brand-400 border border-slate-700 font-bold text-xs transition active:scale-95">Apply</button>
+        </div>
+      </div>
+
+      <!-- Payment Method Selection Grid -->
+      <div>
+        <label class="text-[10px] uppercase font-bold text-slate-400 block mb-2">Select Payment Method</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="payment-method-card p-2.5 sm:p-3 rounded-xl glass-card border-2 border-brand-500 cursor-pointer flex items-center space-x-2">
+            <input type="radio" name="payment_method" value="GCash" checked onchange="updatePaymentSelection(this)" class="accent-brand-500">
+            <div class="min-w-0">
+              <span class="block text-xs font-bold text-white truncate">GCash / E-Wallet</span>
+              <span class="text-[9px] text-slate-400 block truncate">Instant cashless</span>
+            </div>
+          </label>
+
+          <label class="payment-method-card p-2.5 sm:p-3 rounded-xl glass-card border border-slate-800 hover:border-slate-700 cursor-pointer flex items-center space-x-2">
+            <input type="radio" name="payment_method" value="Maya" onchange="updatePaymentSelection(this)" class="accent-brand-500">
+            <div class="min-w-0">
+              <span class="block text-xs font-bold text-white truncate">Maya Wallet</span>
+              <span class="text-[9px] text-slate-400 block truncate">Digital Wallet</span>
+            </div>
+          </label>
+
+          <label class="payment-method-card p-2.5 sm:p-3 rounded-xl glass-card border border-slate-800 hover:border-slate-700 cursor-pointer flex items-center space-x-2">
+            <input type="radio" name="payment_method" value="Cash" onchange="updatePaymentSelection(this)" class="accent-brand-500">
+            <div class="min-w-0">
+              <span class="block text-xs font-bold text-white truncate">Cash on Hand</span>
+              <span class="text-[9px] text-slate-400 block truncate">Pay driver directly</span>
+            </div>
+          </label>
+
+          <label class="payment-method-card p-2.5 sm:p-3 rounded-xl glass-card border border-slate-800 hover:border-slate-700 cursor-pointer flex items-center space-x-2">
+            <input type="radio" name="payment_method" value="Card" onchange="updatePaymentSelection(this)" class="accent-brand-500">
+            <div class="min-w-0">
+              <span class="block text-xs font-bold text-white truncate">Credit/Debit Card</span>
+              <span class="text-[9px] text-slate-400 block truncate">Visa / Mastercard</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <button onclick="confirmBookingAndFindDriver()" class="w-full py-3 sm:py-3.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-bold text-xs sm:text-sm shadow-lg shadow-brand-600/30 transition transform active:scale-95">
+        Confirm Booking &amp; Search Driver
+      </button>
+    </div>
+  </div>
+
+  <!-- RECEIPT & RATING MODAL -->
+  <div id="printable-receipt-modal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex items-center justify-center p-3.5 sm:p-4">
+    <div class="glass-card w-full max-w-sm rounded-3xl border border-slate-800 p-5 sm:p-6 space-y-3.5 text-center shadow-2xl relative bg-slate-900 text-slate-100 max-h-[90vh] overflow-y-auto">
+      
+      <!-- Completed Icon -->
+      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 flex items-center justify-center mx-auto text-2xl sm:text-3xl shadow-lg shadow-emerald-500/20">
+        <i class="fa-solid fa-check"></i>
+      </div>
+
+      <div>
+        <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-white">Trip Completed!</h3>
+        <p class="text-xs text-slate-400 mt-0.5">Thank you for riding with Arkila</p>
+      </div>
+
+      <!-- Star Rating Interactive Block -->
+      <div class="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60 space-y-2">
+        <p class="text-xs font-semibold text-slate-300">Rate driver <strong id="receipt-driver-name">Juan D.</strong></p>
+        <div class="flex items-center justify-center space-x-2 text-xl sm:text-2xl text-slate-600" id="star-rating-box">
+          <i class="fa-solid fa-star cursor-pointer hover:text-amber-400 transition" onclick="setStarRating(1)"></i>
+          <i class="fa-solid fa-star cursor-pointer hover:text-amber-400 transition" onclick="setStarRating(2)"></i>
+          <i class="fa-solid fa-star cursor-pointer hover:text-amber-400 transition" onclick="setStarRating(3)"></i>
+          <i class="fa-solid fa-star cursor-pointer hover:text-amber-400 transition" onclick="setStarRating(4)"></i>
+          <i class="fa-solid fa-star cursor-pointer hover:text-amber-400 transition" onclick="setStarRating(5)"></i>
+        </div>
+
+        <!-- Driver Tip Selector -->
+        <div class="pt-2 border-t border-slate-700/60">
+          <p class="text-[9px] uppercase text-slate-400 font-bold mb-1">Add Driver Tip</p>
+          <div class="flex justify-center space-x-1.5">
+            <button onclick="selectTipAmount(0, this)" class="tip-btn px-2 py-1 rounded-lg bg-slate-700 text-[11px] font-bold text-white border border-brand-500">No Tip</button>
+            <button onclick="selectTipAmount(10, this)" class="tip-btn px-2 py-1 rounded-lg bg-slate-800 text-[11px] font-bold text-slate-300">₱10</button>
+            <button onclick="selectTipAmount(20, this)" class="tip-btn px-2 py-1 rounded-lg bg-slate-800 text-[11px] font-bold text-slate-300">₱20</button>
+            <button onclick="selectTipAmount(50, this)" class="tip-btn px-2 py-1 rounded-lg bg-slate-800 text-[11px] font-bold text-slate-300">₱50</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Itemized Receipt Log -->
+      <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-left text-[11px] space-y-1 font-mono">
+        <div class="flex justify-between border-b border-slate-800 pb-1 font-sans font-bold text-slate-400">
+          <span>RECEIPT</span>
+          <span id="receipt-id-tag">#ARK-8492</span>
+        </div>
+        <p class="text-[9px] text-slate-500 pt-1">Date: <span id="receipt-date-stamp">2026-09-20 10:30 AM</span></p>
+        <p class="text-[9px] text-slate-500">Route: <span id="receipt-route-text" class="text-slate-300 font-sans truncate inline-block max-w-[200px] align-bottom">Market → Town Center</span></p>
+        <div class="border-t border-dashed border-slate-800 my-1 pt-1 space-y-1">
+          <div class="flex justify-between text-slate-400">
+            <span>Ride Fare</span>
+            <span id="receipt-fare-val">₱80.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Driver Tip</span>
+            <span id="receipt-tip-val">₱0.00</span>
+          </div>
+          <div class="flex justify-between text-white font-bold border-t border-slate-800 pt-1">
+            <span>TOTAL PAID</span>
+            <span id="receipt-total-val" class="text-brand-400">₱80.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="window.print()" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition active:scale-95 flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-print"></i> Print
+        </button>
+        <button onclick="finishTripAndReset()" class="py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-brand-600/30 transition active:scale-95">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-16 right-4 left-4 sm:left-auto z-50 flex flex-col space-y-2 pointer-events-none items-end"></div>
+</body>
+</html>
